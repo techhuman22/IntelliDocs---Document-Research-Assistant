@@ -125,10 +125,8 @@ Key environment variables (`backend/.env`):
 | `CHUNK_SIZE` | Tokens per chunk (default 500) |
 | `CHUNK_OVERLAP` | Token overlap between chunks (default 50) |
 
-## 📜 License
 
-MIT — free to use, modify, and distribute.
 
-## 🙏 Acknowledgements
+## Acknowledgements
 
 Built with the open-source tooling of [Next.js](https://nextjs.org), [FastAPI](https://fastapi.tiangolo.com), [LangGraph](https://github.com/langchain-ai/langgraph), [pgvector](https://github.com/pgvector/pgvector), [Groq](https://groq.com), and [HuggingFace](https://huggingface.co).
