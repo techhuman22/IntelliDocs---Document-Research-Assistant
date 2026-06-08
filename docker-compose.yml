@@ -1,0 +1,152 @@
+version: "3.9"
+
+# ── Shared Environment ────────────────────────────────────────────────────────
+# These values are used by multiple services. Defined once here with YAML
+# anchors (&anchor / *alias) to avoid repetition and drift.
+
+x-backend-env: &backend-env
+  ENVIRONMENT: development
+  DEBUG: "true"
+
+  POSTGRES_HOST: postgres
+  POSTGRES_PORT: 5432
+  POSTGRES_DB: agentflow
+  POSTGRES_USER: agentflow_user
+  POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-devpassword}
+
+  REDIS_HOST: redis
+  REDIS_PORT: 6379
+  REDIS_DB: 0
+
+  CELERY_BROKER_URL: redis://redis:6379/1
+  CELERY_RESULT_BACKEND: redis://redis:6379/2
+
+  SECRET_KEY: ${SECRET_KEY:-dev-secret-key-change-in-production-min-32-chars}
+  JWT_SECRET_KEY: ${JWT_SECRET_KEY:-dev-jwt-secret-key-change-in-production-32chars}
+
+  GEMINI_API_KEY: ${GEMINI_API_KEY}
+
+  LOG_FORMAT: console
+  LOG_LEVEL: DEBUG
+
+  CORS_ORIGINS: "http://localhost:3000,http://127.0.0.1:3000"
+
+
+services:
+
+  # ── PostgreSQL ──────────────────────────────────────────────────────────────
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: agentflow_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: agentflow
+      POSTGRES_USER: agentflow_user
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-devpassword}
+      POSTGRES_INITDB_ARGS: "--auth-host=scram-sha-256"
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./docker/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U agentflow_user -d agentflow"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks:
+      - agentflow_net
+
+  # ── Redis ───────────────────────────────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    container_name: agentflow_redis
+    restart: unless-stopped
+    command: >
+      redis-server
+      --maxmemory 256mb
+      --maxmemory-policy allkeys-lru
+      --save 60 1
+      --appendonly yes
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - agentflow_net
+
+  # ── FastAPI Backend ──────────────────────────────────────────────────────────
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+      target: runtime
+    container_name: agentflow_backend
+    restart: unless-stopped
+    environment:
+      <<: *backend-env
+    # Development override: hot-reload with source mount
+    command: >
+      uvicorn app.main:app
+      --host 0.0.0.0
+      --port 8000
+      --reload
+      --log-level debug
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend:/app                  # source mount for hot-reload (dev only)
+      - ./backend/uploads:/app/uploads  # persistent upload storage
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - agentflow_net
+
+  # ── Celery Worker ─────────────────────────────────────────────────────────────
+  celery_worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+      target: runtime
+    container_name: agentflow_celery
+    restart: unless-stopped
+    environment:
+      <<: *backend-env
+    command: >
+      celery -A app.workers.celery_app worker
+      --loglevel=info
+      --concurrency=2
+      --queues=document_processing,default
+    volumes:
+      - ./backend:/app
+      - ./backend/uploads:/app/uploads
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - agentflow_net
+
+
+# ── Volumes ───────────────────────────────────────────────────────────────────
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+
+
+# ── Networks ──────────────────────────────────────────────────────────────────
+networks:
+  agentflow_net:
+    driver: bridge

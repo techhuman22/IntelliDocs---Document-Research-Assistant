@@ -1,0 +1,63 @@
+# ── Web Framework ────────────────────────────────────────────────────────────
+fastapi==0.115.5
+uvicorn[standard]==0.32.1
+python-multipart==0.0.18        # multipart/form-data (file uploads)
+httpx==0.27.2                   # async HTTP client (used in tests + services)
+
+# ── Database ──────────────────────────────────────────────────────────────────
+sqlalchemy==2.0.36
+asyncpg==0.30.0                 # async PostgreSQL driver (used by SQLAlchemy)
+psycopg2-binary==2.9.10         # sync driver (used by Alembic)
+alembic==1.14.0
+pgvector==0.3.6                 # pgvector SQLAlchemy type + utilities
+
+# ── Caching & Task Queue ──────────────────────────────────────────────────────
+redis==5.2.1
+celery==5.4.0
+celery[redis]==5.4.0
+
+# ── Authentication ────────────────────────────────────────────────────────────
+python-jose[cryptography]==3.3.0   # JWT encode / decode
+passlib[bcrypt]==1.7.4             # password hashing
+bcrypt==4.2.1
+
+# ── Configuration ─────────────────────────────────────────────────────────────
+pydantic==2.10.3
+pydantic-settings==2.6.1
+python-dotenv==1.0.1
+
+# ── AI / LLM ─────────────────────────────────────────────────────────────────
+langchain==0.3.13
+langchain-groq==0.2.4           # Groq LLM provider for LangChain
+langchain-huggingface==0.1.2    # HuggingFace embeddings via sentence-transformers
+langchain-community==0.3.13
+langgraph==0.2.59
+groq==0.13.1                    # Groq Python SDK (used by langchain-groq)
+sentence-transformers==3.3.1    # all-mpnet-base-v2 local embedding model
+torch==2.5.1                    # required by sentence-transformers (CPU build)
+transformers==4.47.1            # HuggingFace transformers (sentence-transformers dep)
+
+# ── Document Processing ───────────────────────────────────────────────────────
+pypdf==5.1.0                    # PDF parsing
+python-docx==1.1.2              # DOCX parsing
+tiktoken==0.8.0                 # token counting
+
+# ── HTTP / Networking ─────────────────────────────────────────────────────────
+aiofiles==24.1.0                # async file I/O
+tenacity==9.0.0                 # retry logic with exponential backoff
+
+# ── Logging & Observability ───────────────────────────────────────────────────
+structlog==24.4.0               # structured JSON logging
+python-json-logger==2.0.7
+
+# ── Utilities ─────────────────────────────────────────────────────────────────
+email-validator==2.2.0          # Pydantic email validation
+python-slugify==8.0.4
+shortuuid==1.0.13
+
+# ── Testing ───────────────────────────────────────────────────────────────────
+pytest==8.3.4
+pytest-asyncio==0.24.0
+pytest-cov==6.0.0
+httpx==0.27.2                   # async test client for FastAPI
+factory-boy==3.3.1              # test fixtures
