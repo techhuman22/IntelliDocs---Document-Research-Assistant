@@ -19,16 +19,19 @@ RUN pip install --upgrade pip && \
 
 
 # ── Stage 2: Model Download ──────────────────────────────────────────────────
-# Pre-download the HuggingFace embedding model during build
-# so it's baked into the image and doesn't need runtime download.
+# Pre-download the HuggingFace embedding model during build using the standard
+# HF hub cache layout (models--org--name).  HuggingFaceEmbeddings / SentenceTransformer
+# look up models by this cache structure, NOT by a flat .save() directory.
 FROM python:3.11-slim AS model-downloader
 
 COPY --from=builder /install /usr/local
 
+# Setting HF_HOME makes the download land in /models/hub/models--sentence-transformers--...
+ENV HF_HOME=/models
+
 RUN python -c "\
 from sentence_transformers import SentenceTransformer; \
-model = SentenceTransformer('sentence-transformers/all-mpnet-base-v2'); \
-model.save('/models/all-mpnet-base-v2')"
+SentenceTransformer('sentence-transformers/all-mpnet-base-v2')"
 
 
 # ── Stage 3: Runtime ──────────────────────────────────────────────────────────
@@ -49,8 +52,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Copy installed packages from builder stage
 COPY --from=builder /install /usr/local
 
-# Copy pre-downloaded model
-COPY --from=model-downloader /models /app/models
+# Copy pre-downloaded model WITH correct ownership so appuser can write
+# lock files and metadata at runtime (this was the PermissionError cause)
+COPY --chown=appuser:appuser --from=model-downloader /models /app/models
 
 # Copy application code
 COPY --chown=appuser:appuser . .
@@ -61,10 +65,10 @@ RUN chmod +x /app/start.sh
 # Create uploads directory with correct ownership
 RUN mkdir -p /app/uploads && chown appuser:appuser /app/uploads
 
-# Set model cache path so sentence-transformers finds the pre-downloaded model
+# Point all HF/ST cache env vars to the pre-downloaded location
+ENV HF_HOME=/app/models
 ENV SENTENCE_TRANSFORMERS_HOME=/app/models
 ENV TRANSFORMERS_CACHE=/app/models
-ENV HF_HOME=/app/models
 
 USER appuser
 
