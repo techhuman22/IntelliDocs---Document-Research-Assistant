@@ -161,16 +161,20 @@ def route_after_retrieval(state: AgentState) -> str:
 
     Called after the RetrievalAgent to decide which specialist node runs next.
     Returns the node name as a string — LangGraph maps this to the next node.
+
+    Node names are intentionally different from state keys to avoid
+    LangGraph's "already used as a state key" ValueError.
     """
     intent = state.get("intent", "qa")
 
     # Error short-circuit: skip specialist agents if retrieval itself failed
     if state.get("error") and not state.get("context"):
-        return "final_response"
+        return "respond"
 
     if intent == "summary":
         return "summary"
     elif intent == "quiz":
         return "quiz"
     else:
-        return "final_response"
+        return "qa"
+

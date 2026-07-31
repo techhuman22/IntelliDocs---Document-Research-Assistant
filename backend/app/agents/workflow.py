@@ -12,11 +12,16 @@ Graph topology:
   [retrieval]       ← embeds query → pgvector similarity search → builds context
     │
     ▼ (conditional edge via route_after_retrieval)
-    ├── "qa"      ──────────────────────────────────────────▶ [final_response]
-    ├── "summary" ──▶ [summary] ─────────────────────────── ▶ [final_response]
-    └── "quiz"    ──────────────▶ [quiz] ──────────────────▶ [final_response]
-                                                                     │
-                                                                    END
+    ├── "qa"      ─────────────────────────────────────────────▶ [respond]
+    ├── "summary" ──▶ [summarize] ─────────────────────────── ▶ [respond]
+    └── "quiz"    ──────────────▶ [generate_quiz] ─────────── ▶ [respond]
+                                                                    │
+                                                                   END
+
+Node naming:
+  Node names MUST NOT collide with AgentState keys.  The state has fields
+  named "summary", "quiz", and "final_response", so the nodes are named
+  "summarize", "generate_quiz", and "respond" respectively.
 
 Compilation:
   The graph is compiled ONCE at module import and reused across all requests.
@@ -53,11 +58,14 @@ from app.agents.summary_agent import summary_node
 _builder = StateGraph(AgentState)
 
 # Register nodes
+# NOTE: node names must not collide with AgentState keys.
+# State has "summary", "quiz", "final_response" fields, so we use
+# "summarize", "generate_quiz", "respond" as node names.
 _builder.add_node("router", router_node)
 _builder.add_node("retrieval", retrieval_node)
-_builder.add_node("summary", summary_node)
-_builder.add_node("quiz", quiz_node)
-_builder.add_node("final_response", final_response_node)
+_builder.add_node("summarize", summary_node)
+_builder.add_node("generate_quiz", quiz_node)
+_builder.add_node("respond", final_response_node)
 
 # Entry point
 _builder.add_edge(START, "router")
@@ -70,19 +78,19 @@ _builder.add_conditional_edges(
     "retrieval",
     route_after_retrieval,
     {
-        "qa": "final_response",
-        "summary": "summary",
-        "quiz": "quiz",
-        "final_response": "final_response",  # error shortcut
+        "qa": "respond",
+        "summary": "summarize",
+        "quiz": "generate_quiz",
+        "respond": "respond",  # error shortcut
     },
 )
 
-# Specialist agents → FinalResponse
-_builder.add_edge("summary", "final_response")
-_builder.add_edge("quiz", "final_response")
+# Specialist agents → Respond
+_builder.add_edge("summarize", "respond")
+_builder.add_edge("generate_quiz", "respond")
 
-# FinalResponse → END
-_builder.add_edge("final_response", END)
+# Respond → END
+_builder.add_edge("respond", END)
 
 # ── Compile ───────────────────────────────────────────────────────────────────
 # Compiled once at module import; thread-safe; used for all requests.
