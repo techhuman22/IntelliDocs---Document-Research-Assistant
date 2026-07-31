@@ -30,11 +30,14 @@ export const chatApi = {
    *     if (event.event_type === "final") { ... }
    *   }
    */
-  stream: async function* (data: {
-    query: string;
-    session_id?: string;
-    document_ids?: string[];
-  }): AsyncGenerator<StreamEvent> {
+  stream: async function* (
+    data: {
+      query: string;
+      session_id?: string;
+      document_ids?: string[];
+    },
+    signal?: AbortSignal
+  ): AsyncGenerator<StreamEvent> {
     const baseUrl =
       process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
     const token =
@@ -49,6 +52,7 @@ export const chatApi = {
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
       },
       body: JSON.stringify(data),
+      signal,
     });
 
     if (!response.ok || !response.body) {
