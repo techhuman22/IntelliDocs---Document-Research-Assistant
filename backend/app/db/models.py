@@ -293,9 +293,9 @@ class DocumentChunk(Base):
     char_count: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     page_number: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
 
-    # 768-dimensional vector from Gemini text-embedding-004
+    # 384-dimensional vector from sentence-transformers/all-MiniLM-L6-v2
     embedding: Mapped[list[float]] = mapped_column(
-        Vector(768),
+        Vector(384),
         nullable=False,
     )
 

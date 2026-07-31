@@ -56,7 +56,7 @@ services:
       - key: GROQ_FAST_MODEL
         value: llama-3.1-8b-instant
       - key: EMBEDDING_MODEL_NAME
-        value: sentence-transformers/all-mpnet-base-v2
+        value: sentence-transformers/all-MiniLM-L6-v2
       - key: TRANSFORMERS_OFFLINE
         value: "0"
       - key: HF_DATASETS_OFFLINE

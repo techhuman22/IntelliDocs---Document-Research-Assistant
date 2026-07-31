@@ -20,8 +20,8 @@ RUN pip install --upgrade pip && \
 
 # ── Stage 2: Model Download ──────────────────────────────────────────────────
 # Pre-download the HuggingFace embedding model during build using the standard
-# HF hub cache layout (models--org--name).  HuggingFaceEmbeddings / SentenceTransformer
-# look up models by this cache structure, NOT by a flat .save() directory.
+# HF hub cache layout.  Using all-MiniLM-L6-v2 (~80 MB, 384-dim) instead of
+# all-mpnet-base-v2 (~420 MB, 768-dim) to fit Render free-tier memory (512 MB).
 FROM python:3.11-slim AS model-downloader
 
 COPY --from=builder /install /usr/local
@@ -31,7 +31,7 @@ ENV HF_HOME=/models
 
 RUN python -c "\
 from sentence_transformers import SentenceTransformer; \
-SentenceTransformer('sentence-transformers/all-mpnet-base-v2')"
+SentenceTransformer('sentence-transformers/all-MiniLM-L6-v2')"
 
 
 # ── Stage 3: Runtime ──────────────────────────────────────────────────────────

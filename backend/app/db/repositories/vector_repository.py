@@ -190,7 +190,7 @@ class VectorRepository:
         We convert: similarity = 1 - distance, then filter by threshold.
 
         Args:
-            query_embedding:      768-dim float vector from EmbeddingService.embed_query().
+            query_embedding:      384-dim float vector from EmbeddingService.embed_query().
             user_id:              Only search within this user's chunks.
             document_ids:         Optional list of document UUID strings to scope the search.
             top_k:                Maximum results to return.

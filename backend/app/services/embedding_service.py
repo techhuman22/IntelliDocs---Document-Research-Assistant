@@ -1,19 +1,21 @@
 """
-Embedding service — converts text chunks into 768-dimensional vectors using
-sentence-transformers/all-mpnet-base-v2 running locally via HuggingFaceEmbeddings.
+Embedding service — converts text chunks into 384-dimensional vectors using
+sentence-transformers/all-MiniLM-L6-v2 running locally via HuggingFaceEmbeddings.
 
-Why local embeddings?
-  - No API key required, no rate limits, no per-token cost.
-  - all-mpnet-base-v2 produces 768-dim vectors — matches the existing
-    pgvector column (Vector(768)) exactly; no migration needed.
-  - The model is downloaded once to ~/.cache/huggingface on first run
-    and cached on disk for all subsequent calls.
+Why all-MiniLM-L6-v2?
+  - Only ~80 MB vs ~420 MB for all-mpnet-base-v2 — fits in Render free tier (512 MB RAM).
+  - Produces 384-dim vectors — half the size, faster cosine similarity.
+  - Still excellent retrieval quality (MiniLM is the go-to lightweight model).
+
+Lazy loading:
+  The model is loaded on first use, NOT at import/module level.  This avoids
+  holding ~200 MB of RAM during startup when other init (DB, Redis) is also
+  allocating memory, which caused OOM (exit code 137) on Render free tier.
 
 Threading:
   sentence-transformers is synchronous (PyTorch under the hood).
   We call it in a thread executor to avoid blocking the async event loop.
-  The model object is initialised once at module import (expensive) and
-  reused for every call (cheap).
+  The model object is initialised once (expensive) and reused for every call (cheap).
 
 Batch processing:
   encode() accepts a list of strings and processes them in one forward
@@ -22,9 +24,8 @@ Batch processing:
 """
 
 import asyncio
+import threading
 from typing import Optional
-
-from langchain_huggingface import HuggingFaceEmbeddings
 
 from app.config.settings import settings
 from app.core.logging import get_logger
@@ -32,34 +33,58 @@ from app.services.chunking_service import TextChunk
 
 logger = get_logger(__name__)
 
-# ── Singleton model — loaded once at startup ──────────────────────────────────
-# HuggingFaceEmbeddings wraps sentence-transformers with a LangChain interface.
-# model_kwargs={"device": "cpu"} is explicit — change to "cuda" if GPU is available.
-# encode_kwargs={"normalize_embeddings": True} makes cosine similarity == dot product,
-# which is what pgvector's <=> operator computes.
-_embedding_model = HuggingFaceEmbeddings(
-    model_name=settings.EMBEDDING_MODEL_NAME,
-    model_kwargs={"device": "cpu"},
-    encode_kwargs={"normalize_embeddings": True},
-)
+# ── Lazy-loaded singleton model ───────────────────────────────────────────────
+# The model is NOT loaded at import time.  Instead it is initialised on the
+# first call to _get_model().  A threading.Lock ensures only one thread does
+# the expensive load even if multiple requests arrive simultaneously.
 
-logger.info(
-    "embedding_model_loaded",
-    model=settings.EMBEDDING_MODEL_NAME,
-    dimension=settings.EMBEDDING_DIMENSION,
-)
+_embedding_model = None
+_model_lock = threading.Lock()
+
+
+def _get_model():
+    """Return the singleton HuggingFaceEmbeddings instance, loading on first call."""
+    global _embedding_model
+    if _embedding_model is not None:
+        return _embedding_model
+
+    with _model_lock:
+        # Double-check after acquiring the lock
+        if _embedding_model is not None:
+            return _embedding_model
+
+        logger.info(
+            "embedding_model_loading",
+            model=settings.EMBEDDING_MODEL_NAME,
+            dimension=settings.EMBEDDING_DIMENSION,
+        )
+
+        from langchain_huggingface import HuggingFaceEmbeddings
+
+        _embedding_model = HuggingFaceEmbeddings(
+            model_name=settings.EMBEDDING_MODEL_NAME,
+            model_kwargs={"device": "cpu"},
+            encode_kwargs={"normalize_embeddings": True},
+        )
+
+        logger.info(
+            "embedding_model_loaded",
+            model=settings.EMBEDDING_MODEL_NAME,
+            dimension=settings.EMBEDDING_DIMENSION,
+        )
+        return _embedding_model
 
 
 # ── Pure sync helpers — run inside thread executor ────────────────────────────
 
 def _embed_texts_sync(texts: list[str]) -> list[list[float]]:
     """Embed a batch of texts synchronously (called in executor)."""
-    return _embedding_model.embed_documents(texts)
+    return _get_model().embed_documents(texts)
 
 
 def _embed_query_sync(query: str) -> list[float]:
     """Embed a single query string synchronously (called in executor)."""
-    return _embedding_model.embed_query(query)
+    return _get_model().embed_query(query)
 
 
 # ── Async service ─────────────────────────────────────────────────────────────
@@ -70,7 +95,7 @@ class EmbeddingService:
 
     Public interface:
       embed_chunks(chunks, document_id) -> list[TextChunk]  (chunks with .embedding set)
-      embed_query(query)                -> list[float]       (768-dim normalised vector)
+      embed_query(query)                -> list[float]       (384-dim normalised vector)
     """
 
     def __init__(self) -> None:
@@ -94,7 +119,7 @@ class EmbeddingService:
             document_id:  For structured logging.
 
         Returns:
-            Same list with each chunk.embedding set to a 768-dim float list.
+            Same list with each chunk.embedding set to a 384-dim float list.
         """
         if not chunks:
             return chunks
@@ -153,13 +178,13 @@ class EmbeddingService:
 
     async def embed_query(self, query: str) -> list[float]:
         """
-        Embed a retrieval query into a 768-dim normalised vector.
+        Embed a retrieval query into a 384-dim normalised vector.
 
         Args:
             query: Natural language search string.
 
         Returns:
-            768-dimensional float vector (L2-normalised).
+            384-dimensional float vector (L2-normalised).
         """
         logger.debug("embedding_query", query_len=len(query))
         loop = asyncio.get_event_loop()

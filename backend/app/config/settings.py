@@ -74,8 +74,8 @@ class Settings(BaseSettings):
     GROQ_FAST_MODEL: str = "llama-3.1-8b-instant"   # used for routing (cheaper/faster)
 
     # ── HuggingFace Embeddings (local, no API key needed) ─────────────────────
-    EMBEDDING_MODEL_NAME: str = "sentence-transformers/all-mpnet-base-v2"
-    EMBEDDING_DIMENSION: int = 768
+    EMBEDDING_MODEL_NAME: str = "sentence-transformers/all-MiniLM-L6-v2"
+    EMBEDDING_DIMENSION: int = 384
 
     # ── File Upload ───────────────────────────────────────────────────────────
     MAX_UPLOAD_SIZE_MB: int = 50
