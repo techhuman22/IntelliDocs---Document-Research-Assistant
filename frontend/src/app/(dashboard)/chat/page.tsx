@@ -89,8 +89,14 @@ function ChatPageInner() {
       id: m.id,
       role: m.role as "user" | "assistant",
       content: m.content,
-      citations: m.citations ?? [],
-      agent_trace: m.agent_trace ?? [],
+      citations: (m.sources as ClientMessage["citations"]) ?? [],
+      agent_trace: (m.agent_path ?? []).map((name) => ({
+        agent_name: name,
+        status: "success" as const,
+        latency_ms: null,
+        token_input: null,
+        token_output: null,
+      })),
       created_at: m.created_at,
     }));
     setMessages(mapped);
