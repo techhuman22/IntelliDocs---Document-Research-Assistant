@@ -58,14 +58,24 @@ async def retrieval_node(state: AgentState, config: RunnableConfig) -> dict[str,
     try:
         from uuid import UUID
         doc_ids = [UUID(did) for did in state["document_ids"]] if state["document_ids"] else None
+        intent = state.get("intent", "qa")
 
-        retrieved_chunks, retrieval_metadata = await retrieval_service.search(
-            query=state["query"],
-            user_id=state["user_id"],
-            document_ids=doc_ids,
-            top_k=settings_top_k(state),
-            similarity_threshold=0.65,  # slightly lower than default to get more context for summaries/quizzes
-        )
+        # For summary/quiz, we want the FULL document, not just semantically similar chunks.
+        # Similarity search on a generic query like "summarize this" returns 0 useful matches.
+        if intent in ("summary", "quiz") and doc_ids:
+            retrieved_chunks, retrieval_metadata = await retrieval_service.fetch_all_chunks(
+                user_id=state["user_id"],
+                document_ids=doc_ids,
+                max_chunks=30,
+            )
+        else:
+            retrieved_chunks, retrieval_metadata = await retrieval_service.search(
+                query=state["query"],
+                user_id=state["user_id"],
+                document_ids=doc_ids,
+                top_k=settings_top_k(state),
+                similarity_threshold=0.25,  # mpnet cosine scores are typically 0.3–0.6 for relevant chunks
+            )
 
         # Build the context string and citations
         built = context_builder.build(

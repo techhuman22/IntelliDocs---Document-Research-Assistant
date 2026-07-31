@@ -154,7 +154,7 @@ class ChatService:
             content_type=content_type,
             intent=intent,
             structured_data=structured_data,
-            sources=[c.model_dump() for c in citations],
+            sources=[c.model_dump(mode="json") for c in citations],
             agent_path=agent_path,
             latency_ms=total_ms,
         )
@@ -402,7 +402,7 @@ class ChatService:
             content_type="text" if intent == "qa" else intent,
             intent=intent,
             structured_data=structured_data,
-            sources=[c.model_dump() for c in citations],
+            sources=[c.model_dump(mode="json") for c in citations],
             agent_path=agent_path,
             latency_ms=total_ms,
         )

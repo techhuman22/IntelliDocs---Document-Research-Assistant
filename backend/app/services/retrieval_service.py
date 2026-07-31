@@ -126,3 +126,71 @@ class RetrievalService:
         )
 
         return retrieved, metadata
+
+    async def fetch_all_chunks(
+        self,
+        *,
+        user_id: str,
+        document_ids: list[UUID],
+        max_chunks: int = 30,
+    ) -> tuple[list[RetrievedChunk], dict]:
+        """
+        Fetch ALL chunks for the given documents directly (no similarity search).
+
+        Used for summary/quiz intents in chat — those need the FULL document content,
+        not just chunks semantically similar to a generic query like "summarize this".
+        """
+        from sqlalchemy import select
+        from app.db.models import Document, DocumentChunk
+
+        t_start = time.perf_counter()
+
+        stmt = (
+            select(DocumentChunk, Document.original_filename)
+            .join(Document, DocumentChunk.document_id == Document.id)
+            .where(
+                DocumentChunk.user_id == UUID(user_id),
+                DocumentChunk.document_id.in_(document_ids),
+            )
+            .order_by(Document.original_filename, DocumentChunk.chunk_index)
+            .limit(max_chunks)
+        )
+
+        result = await self._session.execute(stmt)
+        rows = result.all()
+
+        retrieved: list[RetrievedChunk] = []
+        for chunk_orm, original_filename in rows:
+            retrieved.append(
+                RetrievedChunk(
+                    chunk_id=chunk_orm.id,
+                    document_id=chunk_orm.document_id,
+                    original_filename=original_filename,
+                    chunk_index=chunk_orm.chunk_index,
+                    content=chunk_orm.content,
+                    similarity_score=1.0,  # direct fetch — treat as perfectly relevant
+                    page_number=chunk_orm.page_number,
+                    chunk_metadata=chunk_orm.chunk_metadata or {},
+                )
+            )
+
+        total_ms = round((time.perf_counter() - t_start) * 1000, 2)
+        metadata = {
+            "total_latency_ms": total_ms,
+            "embedding_ms": 0,
+            "search_ms": total_ms,
+            "candidates_searched": len(rows),
+            "chunks_returned": len(retrieved),
+            "query_length": 0,
+            "document_scope": len(document_ids),
+            "mode": "direct_fetch",
+        }
+
+        logger.info(
+            "retrieval_direct_fetch_complete",
+            user_id=user_id,
+            returned=len(retrieved),
+            documents=len(document_ids),
+        )
+
+        return retrieved, metadata

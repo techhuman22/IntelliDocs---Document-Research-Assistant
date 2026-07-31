@@ -86,7 +86,7 @@ class Settings(BaseSettings):
     CHUNK_SIZE: int = 512               # target tokens per chunk
     CHUNK_OVERLAP: int = 64             # overlap between adjacent chunks (tokens)
     RETRIEVAL_TOP_K: int = 8            # chunks returned per similarity search
-    RETRIEVAL_SIMILARITY_THRESHOLD: float = 0.70  # min cosine score to include
+    RETRIEVAL_SIMILARITY_THRESHOLD: float = 0.25  # min cosine score; mpnet relevant scores are 0.3–0.6
 
     # Embedding batching — sentence-transformers processes locally in batches
     EMBEDDING_BATCH_SIZE: int = 64

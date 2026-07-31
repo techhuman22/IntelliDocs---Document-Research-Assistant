@@ -1,0 +1,73 @@
+## Render Blueprint — Infrastructure as Code
+## Deploy with: https://render.com/deploy?repo=https://github.com/techhuman22/IntelliDocs---Document-Research-Assistant
+
+services:
+  # ── FastAPI Backend ──────────────────────────────────────────────────────────
+  - type: web
+    name: intellidocs-backend
+    runtime: docker
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    repo: https://github.com/techhuman22/IntelliDocs---Document-Research-Assistant
+    plan: free
+    healthCheckPath: /api/v1/health
+    envVars:
+      # App
+      - key: ENVIRONMENT
+        value: production
+      - key: DEBUG
+        value: "false"
+      - key: SECRET_KEY
+        generateValue: true
+      - key: JWT_SECRET_KEY
+        generateValue: true
+
+      # Database (Neon PostgreSQL)
+      - key: POSTGRES_HOST
+        sync: false
+      - key: POSTGRES_PORT
+        value: "5432"
+      - key: POSTGRES_DB
+        value: agentflow
+      - key: POSTGRES_USER
+        sync: false
+      - key: POSTGRES_PASSWORD
+        sync: false
+
+      # Redis (Upstash)
+      - key: REDIS_HOST
+        sync: false
+      - key: REDIS_PORT
+        value: "6379"
+      - key: REDIS_DB
+        value: "0"
+      - key: REDIS_PASSWORD
+        sync: false
+      - key: CELERY_BROKER_URL
+        sync: false
+      - key: CELERY_RESULT_BACKEND
+        sync: false
+
+      # AI
+      - key: GROQ_API_KEY
+        sync: false
+      - key: GROQ_MODEL
+        value: llama-3.3-70b-versatile
+      - key: GROQ_FAST_MODEL
+        value: llama-3.1-8b-instant
+      - key: EMBEDDING_MODEL_NAME
+        value: sentence-transformers/all-mpnet-base-v2
+      - key: TRANSFORMERS_OFFLINE
+        value: "0"
+      - key: HF_DATASETS_OFFLINE
+        value: "0"
+
+      # CORS — update after Vercel deployment
+      - key: CORS_ORIGINS
+        sync: false
+
+      # Logging
+      - key: LOG_LEVEL
+        value: INFO
+      - key: LOG_FORMAT
+        value: json

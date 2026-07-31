@@ -18,7 +18,20 @@ RUN pip install --upgrade pip && \
     pip install --prefix=/install --no-cache-dir -r requirements.txt
 
 
-# ── Stage 2: Runtime ──────────────────────────────────────────────────────────
+# ── Stage 2: Model Download ──────────────────────────────────────────────────
+# Pre-download the HuggingFace embedding model during build
+# so it's baked into the image and doesn't need runtime download.
+FROM python:3.11-slim AS model-downloader
+
+COPY --from=builder /install /usr/local
+
+RUN python -c "\
+from sentence_transformers import SentenceTransformer; \
+model = SentenceTransformer('sentence-transformers/all-mpnet-base-v2'); \
+model.save('/models/all-mpnet-base-v2')"
+
+
+# ── Stage 3: Runtime ──────────────────────────────────────────────────────────
 FROM python:3.11-slim AS runtime
 
 # Create non-root user for security
@@ -36,11 +49,22 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Copy installed packages from builder stage
 COPY --from=builder /install /usr/local
 
+# Copy pre-downloaded model
+COPY --from=model-downloader /models /app/models
+
 # Copy application code
 COPY --chown=appuser:appuser . .
 
+# Make start script executable
+RUN chmod +x /app/start.sh
+
 # Create uploads directory with correct ownership
 RUN mkdir -p /app/uploads && chown appuser:appuser /app/uploads
+
+# Set model cache path so sentence-transformers finds the pre-downloaded model
+ENV SENTENCE_TRANSFORMERS_HOME=/app/models
+ENV TRANSFORMERS_CACHE=/app/models
+ENV HF_HOME=/app/models
 
 USER appuser
 
@@ -48,14 +72,8 @@ USER appuser
 EXPOSE 8000
 
 # Health check — Docker will mark the container unhealthy if this fails
-HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
     CMD curl -f http://localhost:8000/api/v1/health || exit 1
 
-# Production command — 4 workers, no reload
-# Override this in docker-compose.yml for development (add --reload)
-CMD ["uvicorn", "app.main:app", \
-     "--host", "0.0.0.0", \
-     "--port", "8000", \
-     "--workers", "1", \
-     "--loop", "uvloop", \
-     "--http", "httptools"]
+# Use start.sh which runs migrations then starts the server
+CMD ["/bin/bash", "/app/start.sh"]
