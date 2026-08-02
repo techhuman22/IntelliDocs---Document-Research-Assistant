@@ -42,7 +42,7 @@ export default function DocumentsPage() {
   });
 
   const processMutation = useMutation({
-    mutationFn: documentsApi.triggerProcessing,
+    mutationFn: (id: string) => documentsApi.triggerProcessing(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.documents.all });
       toast.success("Processing started");
