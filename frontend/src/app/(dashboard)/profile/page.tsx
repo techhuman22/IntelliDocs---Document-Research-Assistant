@@ -89,7 +89,7 @@ export default function ProfilePage() {
   });
 
   const deleteAccountMutation = useMutation({
-    mutationFn: authApi.deleteAccount,
+    mutationFn: () => authApi.deleteAccount(""),
     onSuccess: () => {
       toast.success("Account deleted");
       logout();
