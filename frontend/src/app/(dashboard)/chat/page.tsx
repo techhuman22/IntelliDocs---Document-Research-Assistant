@@ -214,7 +214,7 @@ function ChatPageInner() {
           // "final"     → full response with citations + trace
           // "error"     → show toast
           if (event.event_type === "token") {
-            fullText += (event.data as { token?: string })?.token ?? (event.data as string ?? "");
+            fullText += (event.data as { token?: string })?.token ?? String(event.data ?? "");
             setStreamingText(fullText);
           } else if (event.event_type === "agent_end") {
             const step = event.data as { agent?: string; status?: string; latency_ms?: number };
