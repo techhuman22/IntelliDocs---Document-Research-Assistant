@@ -32,6 +32,7 @@ export const documentsApi = {
     page?: number;
     limit?: number;
     status?: string;
+    search?: string;
   }): Promise<DocumentListResponse> => {
     const response = await apiClient.get<DocumentListResponse>(
       "/api/v1/documents",
