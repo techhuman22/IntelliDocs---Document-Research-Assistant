@@ -108,8 +108,8 @@ def create_application() -> FastAPI:
         CORSMiddleware,
         allow_origins=settings.cors_origins_list,
         allow_credentials=True,             # required for httpOnly cookie auth
-        allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-        allow_headers=["Authorization", "Content-Type", "X-Request-ID"],
+        allow_methods=["*"],                 # allow all HTTP methods
+        allow_headers=["*"],                 # allow all headers (Authorization, Content-Type, etc.)
         expose_headers=["X-Request-ID"],    # let frontend read our request ID
     )
 

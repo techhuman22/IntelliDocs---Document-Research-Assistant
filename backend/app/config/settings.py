@@ -104,7 +104,7 @@ class Settings(BaseSettings):
     CELERY_RESULT_BACKEND: str = "redis://localhost:6379/2"
 
     # ── CORS ──────────────────────────────────────────────────────────────────
-    CORS_ORIGINS: str = "http://localhost:3000,http://localhost:3001,http://localhost:3002"
+    CORS_ORIGINS: str = "http://localhost:3000,http://localhost:3001,http://localhost:3002,https://intelli-docs-document-research-assistant-e6xf-axu9vax2h.vercel.app"
 
     # ── Rate Limiting ─────────────────────────────────────────────────────────
     RATE_LIMIT_REQUESTS: int = 100
