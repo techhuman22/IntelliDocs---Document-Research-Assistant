@@ -101,9 +101,17 @@ def create_application() -> FastAPI:
         generate_unique_id_function=lambda route: route.name,
     )
 
+    # ── Custom Middleware ─────────────────────────────────────────────────────
+    # Must be added BEFORE CORS so that CORS (added last) becomes the
+    # outermost layer in Starlette's LIFO stack.  This ensures preflight
+    # OPTIONS requests are handled by CORSMiddleware before any custom
+    # middleware can reject or modify them.
+    register_middleware(application)
+
     # ── CORS ──────────────────────────────────────────────────────────────────
-    # Must be added before other middleware to ensure preflight OPTIONS requests
-    # are handled before reaching auth middleware.
+    # Added LAST so it is the outermost middleware (runs first on request).
+    # This ensures preflight OPTIONS requests get proper CORS headers before
+    # any auth/logging/security middleware can interfere.
     application.add_middleware(
         CORSMiddleware,
         allow_origins=settings.cors_origins_list,
@@ -112,9 +120,6 @@ def create_application() -> FastAPI:
         allow_headers=["*"],                 # allow all headers (Authorization, Content-Type, etc.)
         expose_headers=["X-Request-ID"],    # let frontend read our request ID
     )
-
-    # ── Custom Middleware ─────────────────────────────────────────────────────
-    register_middleware(application)
 
     # ── Exception Handlers ────────────────────────────────────────────────────
     register_exception_handlers(application)
