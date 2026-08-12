@@ -213,7 +213,11 @@ class AuthService:
 
         # Step 3: revoke old token
         await self._token_repo.revoke_token(db_token)
-        await self._redis.delete(refresh_token_redis_key(jti))
+        # Revoke in Redis (remove cached JTI)
+        try:
+            await self._redis.delete(refresh_token_redis_key(jti))
+        except Exception:
+            logger.warning("redis_unavailable_revoke", jti=jti)
 
         # Step 4: load user
         try:
@@ -263,7 +267,11 @@ class AuthService:
 
         if jti:
             revoked = await self._token_repo.revoke_by_jti(jti)
-            await self._redis.delete(refresh_token_redis_key(jti))
+            # Revoke in Redis as well
+            try:
+                await self._redis.delete(refresh_token_redis_key(jti))
+            except Exception:
+                logger.warning("redis_unavailable_revoke_all", jti=jti)
             logger.info("user_logged_out", user_id=user_id_str, token_revoked=revoked)
 
     async def logout_all_sessions(self, *, user_id: UUID) -> int:
@@ -311,9 +319,12 @@ class AuthService:
         )
 
         # Cache JTI → user_id in Redis for fast validation
-        redis_key = refresh_token_redis_key(jti)
-        redis_ttl = settings.REFRESH_TOKEN_EXPIRE_DAYS * 86_400  # days → seconds
-        await self._redis.setex(redis_key, redis_ttl, user_id_str)
+        try:
+            redis_key = refresh_token_redis_key(jti)
+            redis_ttl = settings.REFRESH_TOKEN_EXPIRE_DAYS * 86_400  # days → seconds
+            await self._redis.setex(redis_key, redis_ttl, user_id_str)
+        except Exception:
+            logger.warning("redis_unavailable_cache_jti", jti=jti)
 
         return TokenPair(
             access_token=access_token,
