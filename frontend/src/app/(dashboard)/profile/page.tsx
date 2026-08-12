@@ -23,7 +23,8 @@ const passwordSchema = z
       .string()
       .min(8, "At least 8 characters")
       .regex(/[A-Z]/, "One uppercase letter")
-      .regex(/[0-9]/, "One number"),
+      .regex(/[0-9]/, "One number")
+      .regex(/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/, "One special character"),
     confirm_password: z.string(),
   })
   .refine((d) => d.new_password === d.confirm_password, {

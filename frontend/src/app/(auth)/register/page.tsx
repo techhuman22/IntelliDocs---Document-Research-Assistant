@@ -18,7 +18,8 @@ const registerSchema = z
       .string()
       .min(8, "At least 8 characters")
       .regex(/[A-Z]/, "One uppercase letter")
-      .regex(/[0-9]/, "One number"),
+      .regex(/[0-9]/, "One number")
+      .regex(/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/, "One special character"),
     confirmPassword: z.string(),
   })
   .refine((d) => d.password === d.confirmPassword, {
@@ -32,6 +33,7 @@ const passwordRules = [
   { label: "At least 8 characters", test: (v: string) => v.length >= 8 },
   { label: "One uppercase letter", test: (v: string) => /[A-Z]/.test(v) },
   { label: "One number", test: (v: string) => /[0-9]/.test(v) },
+  { label: "One special character (!@#$...)", test: (v: string) => /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(v) },
 ];
 
 export default function RegisterPage() {
